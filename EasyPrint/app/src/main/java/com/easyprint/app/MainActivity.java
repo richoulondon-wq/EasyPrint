@@ -108,15 +108,66 @@ public class MainActivity extends Activity {
         status.setText(s.toString());
     }
 
-    private void requestUsbPermissionIfFound() {
-        if (usbManager == null) return;
+    
+private void requestUsbPermissionIfFound() {
+    if (usbManager == null) {
+        status.setText("USB indisponible / USB غير متاح");
+        return;
+    }
+
+    try {
+        boolean found = false;
+
         for (UsbDevice d : usbManager.getDeviceList().values()) {
-            if (d.getVendorId() == EPSON_VENDOR_ID && d.getProductId() == SX130_PRODUCT_ID && !usbManager.hasPermission(d)) {
-                PendingIntent pi = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-                usbManager.requestPermission(d, pi);
+            if (d.getVendorId() == EPSON_VENDOR_ID
+                    && d.getProductId() == SX130_PRODUCT_ID) {
+
+                found = true;
+
+                if (!usbManager.hasPermission(d)) {
+                    Intent permissionIntent =
+                            new Intent(ACTION_USB_PERMISSION);
+
+                    // Android 14 / 15 compatibility
+                    permissionIntent.setPackage(getPackageName());
+
+                    PendingIntent pi = PendingIntent.getBroadcast(
+                            this,
+                            0,
+                            permissionIntent,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                                    | PendingIntent.FLAG_MUTABLE
+                    );
+
+                    usbManager.requestPermission(d, pi);
+
+                    status.setText(
+                            "Demande d'autorisation USB...\n"
+                            + "يرجى السماح بالاتصال بالطابعة"
+                    );
+                } else {
+                    status.setText(
+                            "Epson SX130 connectée / الطابعة متصلة"
+                    );
+                }
             }
         }
+
+        if (!found) {
+            status.setText(
+                    "Epson SX130 non détectée.\n"
+                    + "لم يتم العثور على Epson SX130"
+            );
+        }
+
+    } catch (RuntimeException e) {
+        status.setText(
+                "Erreur USB: " + e.getClass().getSimpleName()
+                + "\n" + e.getMessage()
+        );
     }
+}
+
 
     private void pickFile() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
