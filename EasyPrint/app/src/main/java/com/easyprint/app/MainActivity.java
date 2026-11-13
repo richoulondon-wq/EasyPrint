@@ -94,7 +94,7 @@ public class MainActivity extends Activity {
         print.setOnClickListener(v -> startPrint()); root.addView(print, buttonParams());
 
         TextView note = new TextView(this);
-        note.setText("Remarque : SX130 utilise un pilote Epson spécifique. Cette version prépare les fichiers et utilise le service d'impression Android. La communication USB directe n'est pas encore intégrée.\n\nملاحظة: طابعة SX130 تحتاج تعريف Epson خاص. هذه النسخة تجهّز الملفات وتستعمل خدمة الطباعة في Android. الطباعة المباشرة عبر USB لم تكتمل بعد.");
+        note.setText("Remarque : SX130 appartient à la famille du pilote Epson legacy 201101w (ESC/P2), pas au pilote ESC/P-R générique. L'impression USB directe nécessite encore l'intégration d'un pilote compatible.\n\nملاحظة: طابعة SX130 تستعمل تعريف Epson القديم 201101w (ESC/P2)، وليس تعريف ESC/P-R العام. دمج تعريف متوافق للطباعة المباشرة عبر USB ما زال قيد التطوير.");
         note.setTextColor(Color.rgb(95,95,95)); note.setTextSize(12); note.setPadding(0,dp(22),0,0); root.addView(note, matchWrap());
         setContentView(root);
     }
