@@ -86,6 +86,8 @@ public class MainActivity extends Activity {
 
         Button scan = makeButton("Rechercher imprimante USB / البحث عن طابعة USB");
         scan.setOnClickListener(v -> { refreshUsbStatus(); requestUsbPermissionIfFound(); }); root.addView(scan, buttonParams());
+        Button identity = makeButton("Lire identité USB / قراءة هوية الطابعة");
+        identity.setOnClickListener(v -> readUsbPrinterIdentity()); root.addView(identity, buttonParams());
         Button choose = makeButton("Choisir une photo ou un PDF / اختيار صورة أو PDF");
         choose.setOnClickListener(v -> pickFile()); root.addView(choose, buttonParams());
         fileLabel = new TextView(this); fileLabel.setText(selectedName); fileLabel.setTextColor(Color.DKGRAY); fileLabel.setTextSize(14); fileLabel.setPadding(4,dp(7),4,dp(12)); root.addView(fileLabel, matchWrap());
@@ -128,6 +130,59 @@ public class MainActivity extends Activity {
     }
 
     
+
+private void readUsbPrinterIdentity() {
+    if (usbManager == null) {
+        status.setText("USB Host indisponible / USB غير متاح");
+        return;
+    }
+    for (UsbDevice device : usbManager.getDeviceList().values()) {
+        if (device.getVendorId() != EPSON_VENDOR_ID || device.getProductId() != SX130_PRODUCT_ID) continue;
+        if (!usbManager.hasPermission(device)) {
+            status.setText("Autorisation USB requise / يلزم السماح بالاتصال");
+            requestUsbPermissionIfFound();
+            return;
+        }
+        for (int i = 0; i < device.getInterfaceCount(); i++) {
+            android.hardware.usb.UsbInterface intf = device.getInterface(i);
+            if (intf.getInterfaceClass() != 7) continue;
+            android.hardware.usb.UsbDeviceConnection connection = null;
+            boolean claimed = false;
+            try {
+                connection = usbManager.openDevice(device);
+                if (connection == null) throw new IllegalStateException("USB connection unavailable");
+                claimed = connection.claimInterface(intf, true);
+                if (!claimed) throw new IllegalStateException("Cannot claim printer interface");
+                // USB Printer Class GET_DEVICE_ID is a read-only request (0xA1 / 0x00).
+                byte[] response = new byte[1024];
+                int count = connection.controlTransfer(0xA1, 0x00, 0, intf.getId(), response, response.length, 2000);
+                if (count < 2) {
+                    status.setText("Interface USB trouvée, mais identité non fournie.\nتم العثور على منفذ الطباعة لكن الطابعة لم ترسل هويتها.");
+                    return;
+                }
+                int declaredLength = ((response[0] & 0xFF) << 8) | (response[1] & 0xFF);
+                int dataLength = Math.min(Math.max(0, declaredLength - 2), count - 2);
+                String deviceId = new String(response, 2, dataLength, java.nio.charset.StandardCharsets.US_ASCII).trim();
+                status.setText("Epson SX130 — identité USB:\n" + (deviceId.isEmpty() ? "Réponse vide / رد فارغ" : deviceId)
+                        + "\n\nLecture seule: aucune donnée d'impression envoyée.\nقراءة فقط: لم يتم إرسال أي أمر طباعة.");
+                return;
+            } catch (Exception e) {
+                status.setText("Lecture identité USB échouée: " + e.getMessage()
+                        + "\nتعذرت قراءة هوية الطابعة.");
+                return;
+            } finally {
+                if (connection != null) {
+                    if (claimed) connection.releaseInterface(intf);
+                    connection.close();
+                }
+            }
+        }
+        status.setText("Interface USB Printer Class introuvable / لم يتم العثور على واجهة الطباعة");
+        return;
+    }
+    status.setText("Epson SX130 non détectée / الطابعة غير متصلة");
+}
+
 private void requestUsbPermissionIfFound() {
     if (usbManager == null) {
         status.setText("USB indisponible / USB غير متاح");
