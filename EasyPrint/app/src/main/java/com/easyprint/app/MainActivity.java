@@ -89,12 +89,12 @@ public class MainActivity extends Activity {
         Button choose = makeButton("Choisir une photo ou un PDF / اختيار صورة أو PDF");
         choose.setOnClickListener(v -> pickFile()); root.addView(choose, buttonParams());
         fileLabel = new TextView(this); fileLabel.setText(selectedName); fileLabel.setTextColor(Color.DKGRAY); fileLabel.setTextSize(14); fileLabel.setPadding(4,dp(7),4,dp(12)); root.addView(fileLabel, matchWrap());
-        Button print = makeButton("Imprimer / طباعة");
+        Button print = makeButton("Ouvrir service Android / فتح خدمة الطباعة");
         print.setTextColor(Color.WHITE); print.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(39,39,39)));
         print.setOnClickListener(v -> startPrint()); root.addView(print, buttonParams());
 
         TextView note = new TextView(this);
-        note.setText("Remarque : SX130 utilise un pilote Epson spécifique. Cette version prépare les fichiers et utilise le service d'impression Android. L'impression USB-OTG directe nécessite encore l'intégration du pilote ESC/P-R.\n\nملاحظة: طابعة SX130 تحتاج تعريف Epson خاص. هذه النسخة تجهّز الملفات وتستعمل خدمة الطباعة في Android. الطباعة المباشرة عبر OTG تتطلب دمج تعريف ESC/P-R.");
+        note.setText("Remarque : SX130 utilise un pilote Epson spécifique. Cette version prépare les fichiers et utilise le service d'impression Android. La communication USB directe n'est pas encore intégrée.\n\nملاحظة: طابعة SX130 تحتاج تعريف Epson خاص. هذه النسخة تجهّز الملفات وتستعمل خدمة الطباعة في Android. الطباعة المباشرة عبر USB لم تكتمل بعد.");
         note.setTextColor(Color.rgb(95,95,95)); note.setTextSize(12); note.setPadding(0,dp(22),0,0); root.addView(note, matchWrap());
         setContentView(root);
     }
@@ -103,8 +103,27 @@ public class MainActivity extends Activity {
         if (usbManager == null) { status.setText("USB Host indisponible / USB غير متاح"); return; }
         List<UsbDevice> devices = new ArrayList<>(usbManager.getDeviceList().values());
         if (devices.isEmpty()) { status.setText("Aucune imprimante USB détectée.\nلم يتم العثور على طابعة USB. Connectez OTG ثم allumez l'imprimante."); return; }
-        StringBuilder s = new StringBuilder("Périphériques USB détectés / أجهزة USB:\n");
-        for (UsbDevice d : devices) s.append("• ").append(d.getProductName() == null ? "USB device" : d.getProductName()).append(" (VID:").append(d.getVendorId()).append(" PID:").append(d.getProductId()).append(")\n");
+        StringBuilder s = new StringBuilder("USB détecté / تم اكتشاف USB:\n");
+        for (UsbDevice d : devices) {
+            boolean sx130 = d.getVendorId() == EPSON_VENDOR_ID && d.getProductId() == SX130_PRODUCT_ID;
+            s.append(sx130 ? "✓ Epson SX130" : "• USB device")
+             .append(" (VID:").append(String.format("%04X", d.getVendorId()))
+             .append(" PID:").append(String.format("%04X", d.getProductId())).append(")\n")
+             .append("Interfaces: ").append(d.getInterfaceCount()).append("\n")
+             .append(usbManager.hasPermission(d) ? "USB permission: granted" : "USB permission: not granted").append("\n");
+            for (int i = 0; i < d.getInterfaceCount(); i++) {
+                android.hardware.usb.UsbInterface intf = d.getInterface(i);
+                s.append("  Interface ").append(i).append(": class ").append(intf.getInterfaceClass())
+                 .append(", subclass ").append(intf.getInterfaceSubclass())
+                 .append(", protocol ").append(intf.getInterfaceProtocol()).append("\n");
+                for (int j = 0; j < intf.getEndpointCount(); j++) {
+                    android.hardware.usb.UsbEndpoint ep = intf.getEndpoint(j);
+                    s.append("    Endpoint ").append(j).append(": address 0x")
+                     .append(Integer.toHexString(ep.getAddress())).append(", type ").append(ep.getType())
+                     .append(", direction ").append(ep.getDirection()).append("\n");
+                }
+            }
+        }
         status.setText(s.toString());
     }
 
